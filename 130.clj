@@ -73,6 +73,8 @@
 ;; TODO: Code below makes child the new root but doesn't connect
 ;; the old parent correctly
 
+;; Could be that this form of tree reparenting does not work properly in all cases. Think about cases where parent node needs to change into a child node, in cases when the tree is more complicated.
+
 (def solution
   (fn [node t]
     (let [path ((fn search [path i [e & children]]
