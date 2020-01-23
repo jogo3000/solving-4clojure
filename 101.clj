@@ -10,23 +10,21 @@
 ;; WARNING: Some of the test cases may timeout if you write an inefficient solution!
 
 (def __
-  "Too slow, should create an array of all the possible prefixes, check
-  https://en.wikipedia.org/wiki/Levenshtein_distance#Recursive"
+  "https://en.wikipedia.org/wiki/Levenshtein_distance#Recursive"
   (fn [c1 c2]
-    (let [solved (atom {})]
-      (letfn [(step [s len_s t len_t]
-                (cond
-                  (zero? len_s) len_t
-                  (zero? len_t) len_s
-                  :else
-                  (get @solved [len_s len_t]
-                       (let [cost (if (= (nth s (dec len_s)) (nth t (dec len_t))) 0 1)
-                             dist (min (inc (step s (dec len_s) t len_t))
-                                       (inc (step s len_s t (dec len_t)))
-                                       (+ cost (step s (dec len_s) t (dec len_t))))]
-                         (swap! solved (fn [m] (assoc m [len_s len_t] dist)))
-                         dist))))]
-        (step c1 (count c1) c2 (count c2))))))
+    (let [source (reduce (fn [m i] (assoc m [i 0] i)) {} (range (inc (count c1))))
+          target (reduce (fn [m j] (assoc m [0 j] j)) source (range (inc (count c2))))
+          full (reduce (fn [m [i j]]
+                                     (let [cost (if (= (nth c1 (dec i)) (nth c2 (dec j))) 0 1)
+                                           deletion (inc (m [(dec i) j]))
+                                           insertion (inc (m [i (dec j)]))
+                                           substitution (+ cost (m [(dec i) (dec j)]))]
+                                       (assoc m [i j] (min deletion insertion substitution)))) target (for [j (range 1 (inc (count c1)))
+                                                                                                            i (range 1 (inc (count c2)))]
+                                                                                                        [j i]))]
+      (full [(count c1) (count c2)]))))
+
+(__ "sit" "bit")
 
 (= (__ "Kitten" "sitting") 3)
 
