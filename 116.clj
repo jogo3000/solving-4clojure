@@ -6,6 +6,8 @@
 
 ;; A balanced prime is a prime number which is also the mean of the primes directly before and after it in the sequence of valid primes. Create a function which takes an integer n, and returns true iff it is a balanced prime.
 
+(comment "This went pretty bad quickly. I needed to optimize calculating primes as the final test needs to calculate a LOT of primes. It doesn't support a chance to share results between tests either. So I implemented Erasthotenes' sieve once again. It doesn't look too great this time. Then I figured out I can find the distance between the prime and the last prime and find out what would be the number which would make n be the mean. Then I could check if that is a prime or not. Too bad I got bogged down for a while because I didn't realize there might be _other_ primes between n and this upper limit. ")
+
 (def __
   (fn [n]
     (cond (> 2 n) false
