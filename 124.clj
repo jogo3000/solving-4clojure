@@ -14,41 +14,25 @@
     (let [opponent ({'b 'w 'w 'b} marker)]
       (letfn [(reduce+ [f coll] (when (seq coll) (reduce f coll)))
               (piece-in [coord] (get-in board coord))
-              (opponent-in? [coord] (spy (str "check" coord) (= opponent (piece-in coord))))
+              (opponent-in? [coord] (= opponent (piece-in coord)))
               (mine-in? [coord] (= marker (piece-in coord)))
               (edible-pieces [dir coord eaten]
                 (let [move (dir coord)
-                      piece (piece-in coord)]
+                      piece (piece-in move)]
                   (condp = piece
                     opponent (edible-pieces dir move (cons move eaten))
                     marker eaten
                     nil)))
-              (north [[y x]]
-                (let [opponents-pieces
-                      (for [y' (range (dec y) -1 -1) :while (opponent-in? [y' x])] [y' x])]
-                  (let [furthest (->> (map first opponents-pieces) (reduce+ min))]
-                    (when-let [y' furthest]
-                      (when (mine-in? [(dec y') x]) opponents-pieces)))))
-              (south [[y x]]
-                (let [opponents-pieces
-                      (for [y' (range (inc y) 9) :while (opponent-in? [y' x])] [y' x])]
-                  (let [furthest (->> (map first opponents-pieces) (reduce+ max))]
-                    (when-let [y' furthest]
-                      (when (mine-in? [(inc y') x]) opponents-pieces)))))
-              (west [[y x]]
-                (let [opponents-pieces
-                      (for [x' (range (dec x) -1 -1) :while (opponent-in? [y x'])] [y x'])]
-                  (let [furthest (->> (map second opponents-pieces) (reduce+ min))]
-                    (when-let [x' furthest]
-                      (when (mine-in? [y (dec x')]) opponents-pieces)))))
-              (east [[y x]]
-                (let [opponents-pieces
-                      (for [x' (range (inc x) 9) :while (opponent-in? [y x'])] [y x'])]
-                  (let [furthest (->> (map second opponents-pieces) (reduce+ max))]
-                    (when-let [x' furthest]
-                      (when (mine-in? [y (inc x')]) opponents-pieces)))))
+              (north [[y x]] [(dec y) x])
+              (south [[y x]] [(inc y) x])
+              (west [[y x]] [y (dec x)])
+              (east [[y x]] [y (inc x)])
               (flips [move]
-                (set (mapcat #(% move) [north south east west])))]
+                (set (mapcat #(edible-pieces % move '()) [north south east west
+                                                          (comp north west)
+                                                          (comp north east)
+                                                          (comp south west)
+                                                          (comp south east)])))]
         (let [possible-moves (for [y (range 9)
                                    x (range 9)
                                    :when (= 'e (piece-in [y x]))]
