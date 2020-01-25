@@ -9,6 +9,8 @@
 (defn spy [id x]
   (println id x) x)
 
+(comment "Maybe directions could also be presented as data. I wouldn't need to comp. At the same time, it is fun to compose functions like this.")
+
 (def __
   (fn [board marker]
     (let [opponent ({'b 'w 'w 'b} marker)]
