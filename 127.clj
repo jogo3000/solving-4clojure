@@ -16,7 +16,13 @@
 ;;     Minerals must have a minimum of three measures of area to be harvested
 ;;     If no minerals can be harvested from the rock, your function should return nil
 
-(comment "What an annoying problem statement!")
+(comment
+  "What an annoying problem statement!
+
+Thoughts: start from every possible location and grow a triangle until growth is blocked.
+- How to identify that you can have two sided triangle?
+- How to identify narrowing in vertical or horizontal direction?
+- I don't need to identify squares. They are only interested in triangles. ")
 
 (def __
   (fn [xs]
