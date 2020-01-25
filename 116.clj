@@ -25,6 +25,7 @@
                                       last)
                       distance (- n last-prime)
                       upper-limit (+ n distance)
+                      ;; muh? I guess I was pretty frustrated here.
                       muh (set (filter (fn [maybe-prime] (not-any? (comp zero? (partial rem maybe-prime)) (range 2 maybe-prime))) (range (inc n) (inc upper-limit))))]
                   (and (muh upper-limit)
                        (not-any? (partial > upper-limit) muh))))))))
