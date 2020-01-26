@@ -7,104 +7,88 @@
 
 ;; Note it is no longer binary as "c" had three connections total -- two children and one parent. Each node is represented as a vector, which always has at least one element giving the name of the node as a symbol. Subsequent items in the vector represent the children of the node. Because the children are ordered it's important that the tree you return keeps the children of each node in order and that the old parent node, if any, is appended on the right. Your function will be given two args -- the name of the node that should become the new root, and the tree to transform.
 
-;; (= '(n)
-;;    (__ 'n '(n)))
+(defn spy [id t]
+  (println id t ) t)
 
-;; (= '(a (t (e)))
-;;    (__ 'a '(t (e) (a))))
-
-;; (= '(e (t (a)))
-;;    (__ 'e '(a (t (e)))))
-
-;; (= '(a (b (c)))
-;;    (__ 'a '(c (b (a)))))
-
-;; (= '(d
-;;       (b
-;;         (c)
-;;         (e)
-;;         (a
-;;           (f
-;;             (g)
-;;             (h)))))
-
-;;   (__ 'd '(a
-;;             (b
-;;               (c)
-;;               (d)
-;;               (e))
-;;             (f
-;;               (g)
-;;               (h)))))
-
-;; (= '(c
-;;       (d)
-;;       (e)
-;;       (b
-;;         (f
-;;           (g)
-;;           (h))
-;;         (a
-;;           (i
-;;           (j
-;;             (k)
-;;             (l))
-;;           (m
-;;             (n)
-;;             (o))))))
-
-;;    (__ 'c '(a
-;;              (b
-;;                (c
-;;                  (d)
-;;                  (e))
-;;                (f
-;;                  (g)
-;;                  (h)))
-;;              (i
-;;                (j
-;;                  (k)
-;;                  (l))
-;;                (m
-;;                  (n)
-;;                  (o))))))
-
-
-;; TODO: Code below makes child the new root but doesn't connect
-;; the old parent correctly
-
-;; Could be that this form of tree reparenting does not work properly in all cases. Think about cases where parent node needs to change into a child node, in cases when the tree is more complicated.
-
-(def solution
+(def __
   (fn [node t]
-    (let [path ((fn search [path i [e & children]]
-                  (if (= node e)
-                    (conj path i)
-                    (mapcat #(search (conj path i) % (nth children %)) (range (count children)))))[] 0 t)
-          _ (println "found path" path)
-          old-root ((fn pare [[e & children] [c & cs]]
-                      (if-not (seq cs) (concat
-                                        (list e)
-                                        (take c children)
-                                        (drop (inc c) children))
-                              (concat (if (symbol? e)
-                                        (list e) e)
-                                      (take c children)
-                                      (list (pare (nth children c) cs))
-                                      (drop (inc c) children))))
-                    t (rest path))
-          _ (println "pared root" old-root)
-          new-root (loop [[e & children] t
-                          [c & cs] (rest path)]
-                     (if-not
-                         (seq cs) (nth children c)
-                         (recur (nth children c) cs)))]
+    (letfn [(rephrase [node]
+              (when (coll? node)
+                (let [parent (first node)
+                      children (rest node)
+                      rels (vec (for [child children] [parent (first child)]))]
+                  (into rels
+                        (mapcat rephrase children)))))]
+      (if (= node (first t)) t
+          (let [relations (rephrase t)
+                parent->children (->> (map (fn [[p c]] {p [c]}) relations)
+                                      (apply merge-with concat))
+                child->parent (->> (map (fn [[p c]] [c p]) relations)
+                                   (into {}))]
+            (letfn [(down [node]
+                      (let [children (parent->children node)]
+                        (if-not children (list node)
+                                (cons node (map down children)))))
+                    (not-me [parent node]
+                      (filter #(if-not (coll? %) true
+                                       (not= (first %) node)) parent))
+                    (up [node]
+                      (let [parent (child->parent node)]
+                        (when parent
+                          (let [parent-tree (up parent)]
+                            (concat (not-me (down parent) node)
+                                    (when parent-tree (list parent-tree)))))))]
+              (let [my-children (down node)
+                    my-parent (up node)]
+                (cons node (concat (rest my-children) (list my-parent))))
+              ))))))
 
-      (concat new-root (list old-root)))))
 
-(comment
-  (= '(a (t (e)))
-     (solution 'a '(t (e) (a))))
+(__ 't '(z (t (e) (a)) (u)))
+;; => {t [a e], z [t]}
+;; => (t (a) (e))
+
+
+(__ 'a '(t (e) (a)))
+;; => {e t, a t}
+
+(__ 'c '(a
+             (b
+               (c
+                 (d)
+                 (e))
+               (f
+                 (g)
+                 (h)))
+             (i
+               (j
+                 (k)
+                 (l))
+               (m
+                 (n)
+                 (o)))))
+;; => (c (d) (e) (b (f (g) (h)) (a (i (j (k) (l)) (m (n) (o))))))
+
+;; => (c (d) (e) b (f (g) (h)) (a (i (j (k) (l)) (m (n) (o)))))
+;; => (c ((d) (e) (b (f (g) (h)) a (i (j (k) (l)) (m (n) (o))))))
+;; ;; (c (d) (e) (b (f (g) (h)) (a (i (j (k) (l)) (m (n) (o))))))
+
+;; => (c ((d) (e) (b (f (g) (h)) a (i (j (k) (l)) (m (n) (o))))))
+;; => (c (d) (e) (b (f (g) (h))))
+;; => (c (d) (e) nil)
+
+
+(= '(n)
+   (__ 'n '(n)))
+
+(= '(a (t (e)))
+   (__ 'a '(t (e) (a))))
+
+(= '(e (t (a)))
+   (__ 'e '(a (t (e)))))
+
+(= '(a (b (c)))
+   (__ 'a '(c (b (a)))))
 
 (= '(d
       (b
@@ -114,14 +98,43 @@
           (f
             (g)
             (h)))))
-  (solution 'd '(a
-                 (b
-                  (c)
-                  (d)
-                  (e))
-                 (f
-                  (g)
-                  (h)))))
+  (__ 'd '(a
+            (b
+              (c)
+              (d)
+              (e))
+            (f
+              (g)
+              (h)))))
 
-
-  )
+(= '(c
+      (d)
+      (e)
+      (b
+        (f
+          (g)
+          (h))
+        (a
+          (i
+          (j
+            (k)
+            (l))
+          (m
+            (n)
+            (o))))))
+   (__ 'c '(a
+             (b
+               (c
+                 (d)
+                 (e))
+               (f
+                 (g)
+                 (h)))
+             (i
+               (j
+                 (k)
+                 (l))
+               (m
+                 (n)
+                 (o))))))
+;; => false
