@@ -22,7 +22,12 @@
 Thoughts: start from every possible location and grow a triangle until growth is blocked.
 - How to identify that you can have two sided triangle?
 - How to identify narrowing in vertical or horizontal direction?
-- I don't need to identify squares. They are only interested in triangles. ")
+- I don't need to identify squares. They are only interested in triangles.
+
+- I don't need to look into every direction, I can just rotate the 'mine' ")
+
+(defn spy [id x]
+  (println id x) x)
 
 (def __
   (fn [xs]
@@ -37,16 +42,47 @@ Thoughts: start from every possible location and grow a triangle until growth is
       (let [width (count (bits (apply max xs)))
             mine (->> (map bits xs)
                       (map #(pad-to width %)))]
-        (letfn [(widen-left [])
-                (widen-right [])
-                (narrow-left [])
-                (narrow-right [])
+        (letfn [(left [start end] [(dec start) end])
+                (right [start end] [start (inc end)])
+                (widen [dir start end rows]
+                  (if-not (seq rows) 0
+                          (let [r (first rows)
+                                rs (rest rows)
+                                cells (for [x (range start (inc end))
+                                            :while (< x (count r))]
+                                        (nth r x))
+                                row-width (count cells)
+                                [start' end'] (dir start end)]
+                            (if-not (and (= row-width (inc (- end start)))
+                                     (every? #(= % 1) cells))
+                              0
+                              (+ row-width
+                                 (widen dir start' end' rs))))))
+                (explore [start rows]
+                  (let [left-side (widen left start start rows)
+                        right-side (widen right start start rows)]
+                    (cond
+                      (< left-side right-side) right-side
+                      (> left-side right-side) left-side
+                      (= left-side right-side) (+ left-side right-side)
+                      ;; TODO from that last one the middle line is duplicate
+                      )))
                 (starting-positions [row]
                   (for [i (range (count row))
                         :when (-> (nth row i) (= 1))] i))]
-          (starting-positions (first mine)))))))
+          (let [found-seams (->> (starting-positions (first mine))
+                                 (map #(explore % mine))
+                                 (filter #(> % 3)))]
+            (when (seq found-seams)
+              (apply max found-seams)))
+          )))))
 
-
+(comment
+  1 1
+  3 2
+  6 3
+  10 4
+  15 5)
 
 (= 10 (__ [15 15 15 15 15]))
 ; 1111      1111
