@@ -45,7 +45,7 @@ Thoughts: start from every possible location and grow a triangle until growth is
         (letfn [(left [start end] [(dec start) end])
                 (right [start end] [start (inc end)])
                 (widen [dir start end rows]
-                  (if-not (seq rows) 0
+                  (if-not (and (>= start 0) (seq rows)) 0
                           (let [r (first rows)
                                 rs (rest rows)
                                 cells (for [x (range start (inc end))
@@ -56,33 +56,41 @@ Thoughts: start from every possible location and grow a triangle until growth is
                             (if-not (and (= row-width (inc (- end start)))
                                      (every? #(= % 1) cells))
                               0
-                              (+ row-width
+                              (inc
                                  (widen dir start' end' rs))))))
+                (size [depth]
+                  (->> (iterate (fn [[n v]]
+                                  (let [n' (inc n)]
+                                    [n' (+ n' v)])) [0 0])
+                       (drop-while #(< (first %) depth))
+                       first second))
+                (mirror [depth]
+                  (let [area (size depth)]
+                    (- (* area 2) depth)))
                 (explore [start rows]
                   (let [left-side (widen left start start rows)
                         right-side (widen right start start rows)]
                     (cond
-                      (< left-side right-side) right-side
-                      (> left-side right-side) left-side
-                      (= left-side right-side) (+ left-side right-side)
-                      ;; TODO from that last one the middle line is duplicate
-                      )))
+                      (< left-side right-side) (size right-side)
+                      (> left-side right-side) (size left-side)
+                      (= left-side right-side) (mirror left-side))))
                 (starting-positions [row]
                   (for [i (range (count row))
-                        :when (-> (nth row i) (= 1))] i))]
-          (let [found-seams (->> (starting-positions (first mine))
-                                 (map #(explore % mine))
-                                 (filter #(> % 3)))]
-            (when (seq found-seams)
-              (apply max found-seams)))
+                        :when (-> (nth row i) (= 1))] i))
+                (explore-level [mine]
+                  (let [found-seams (->> (starting-positions (first mine))
+                                         (map #(explore % mine))
+                                         (filter #(>= % 3)))]
+                    (when (seq found-seams)
+                      (apply max found-seams))))]
+          (let [levels (take-while seq (iterate rest mine))]
+            (let [seams (->> (map explore-level levels)
+                             (filter boolean))]
+              (when (seq seams)
+                (apply max seams))))
           )))))
 
-(comment
-  1 1
-  3 2
-  6 3
-  10 4
-  15 5)
+
 
 (= 10 (__ [15 15 15 15 15]))
 ; 1111      1111
