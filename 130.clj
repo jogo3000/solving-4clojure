@@ -7,6 +7,8 @@
 
 ;; Note it is no longer binary as "c" had three connections total -- two children and one parent. Each node is represented as a vector, which always has at least one element giving the name of the node as a symbol. Subsequent items in the vector represent the children of the node. Because the children are ordered it's important that the tree you return keeps the children of each node in order and that the old parent node, if any, is appended on the right. Your function will be given two args -- the name of the node that should become the new root, and the tree to transform.
 
+(comment "I first tried to manipulate the tree with a recursive search algorithm. That turned out to be quite difficult. I decided it is easier to rephrase the tree as it's edges and then just rerender the tree starting from the new root and concatenating its parents according the rules stated here. Some fine tuning was needed in how to concat old children and the new third children.")
+
 (defn spy [id t]
   (println id t ) t)
 
