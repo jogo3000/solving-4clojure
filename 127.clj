@@ -24,7 +24,10 @@ Thoughts: start from every possible location and grow a triangle until growth is
 - How to identify narrowing in vertical or horizontal direction?
 - I don't need to identify squares. They are only interested in triangles.
 
-- I don't need to look into every direction, I can just rotate the 'mine' ")
+- I don't need to look into every direction, I can just rotate the 'mine'.
+
+Final thougths:
+- After the insight I can rotate the mine it was almost trivial, yet tedious to work the rest out. I didn't much like the wordy problem statement and this problem was one of my least favourites.")
 
 (defn spy [id x]
   (println id x) x)
@@ -35,10 +38,10 @@ Thoughts: start from every possible location and grow a triangle until growth is
               (when (pos? n)
                 (cons (rem n 2) (bits (quot n 2)))))
             (pad-to [n bs]
-              (-> (count bs)
-                  (as-> w (- n w))
-                  (repeat 0)
-                  (concat bs)))]
+              (let [width (count bs)]
+                (-> (- n width)
+                    (repeat 0)
+                    (concat bs))))]
       (let [width (count (bits (apply max xs)))
             mine (->> (map bits xs)
                       (map #(pad-to width %)))]
@@ -82,15 +85,40 @@ Thoughts: start from every possible location and grow a triangle until growth is
                                          (map #(explore % mine))
                                          (filter #(>= % 3)))]
                     (when (seq found-seams)
-                      (apply max found-seams))))]
-          (let [levels (take-while seq (iterate rest mine))]
-            (let [seams (->> (map explore-level levels)
-                             (filter boolean))]
-              (when (seq seams)
-                (apply max seams))))
-          )))))
+                      (apply max found-seams))))
+                (rotate [mine]
+                  (->> (apply map vector mine)
+                       (map reverse)))
+                (explore-mine [mine]
+                  (let [levels (take-while seq (iterate rest mine))]
+                    (let [seams (->> (map explore-level levels)
+                                     (filter boolean))]
+                      (when (seq seams)
+                        (apply max seams)))))]
+          (let [configurations (take 4 (iterate rotate mine))
+                seams (->> (map explore-mine configurations)
+                           (filter boolean))]
+            (when (seq seams)
+              (apply max seams))))))))
 
+(defn print-mine [mine]
+  (doseq [level mine]
+    (println level))
+  (println "-----")
+  mine)
 
+(defn rotate [mine]
+  (->> (apply map vector mine)
+       (map reverse)))
+
+(->> [[1 2 3 4] [5 6 7 8] [9 10 11 12]]
+     (print-mine)
+     (rotate)
+     (print-mine)
+     (rotate)
+     (print-mine)
+     (rotate)
+     (print-mine))
 
 (= 10 (__ [15 15 15 15 15]))
 ; 1111      1111
