@@ -44,14 +44,30 @@
   subvec
   )
 
+(defn spy [id x]
+  (println id x) x)
+
 (def __
   (fn [V]
     (let [width (->> (map count V) (apply max))]
       (letfn [(positions [v]
                 (let [diff (- width (count v))]
                   (for [i (range (inc diff))]
-                    (vec (concat (repeat i nil) v (repeat (- diff i) nil))))))]
-        (map positions V)))))
+                    (vec (concat (repeat i nil) v (repeat (- diff i) nil))))))
+              (alignments [[v & vs]]
+                (for [v' v]
+                  (if (seq vs)
+                    (spy (str "cons" v') (map #(cons v' %) (alignments vs)))
+                    (list v'))))]
+        (->> (map positions V)
+             (alignments))))))
+
+(__ [  [2 4 6 3]
+        [3 4 6 2]
+          [6 2 4]  ])
+;; => (([2 4 6 3] ([3 4 6 2] ([6 2 4 nil]) ([nil 6 2 4]))))
+
+;; => (([2 4 6 3]) ([3 4 6 2]) ([6 2 4 nil] [nil 6 2 4]))
 
 (= (__ '[[A B C D]
          [A C D B]
@@ -84,6 +100,8 @@
         [3 4 6 2]
           [6 2 4]  ])
    {})
+
+
 
 (= (__ [[1]
         [1 2 1 2]
