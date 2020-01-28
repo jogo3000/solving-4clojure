@@ -47,6 +47,38 @@
 (defn spy [id x]
   (println id x) x)
 
+(defn down [head options])
+
+;; positions
+;; (([2 4 6 3])
+;;  ([3 4 6 2])
+;;  ([6 2 4 nil] [nil 6 2 4]))
+;;
+
+(defn alignments [[v & vs]]
+  ;; v -> list of lists
+  ;; vs -> list of list of lists
+  (if (seq vs)
+    (mapcat (fn [configurations]
+              (for [conf configurations
+                    option v]
+                (cons option (list conf)))) (alignments vs))
+    (list v))
+  )
+
+
+(alignments positions)
+
+
+;; => ([[[2 4 6 3] [[[3 4 6 2] [[6 2 4 nil]]] [[3 4 6 2] [[nil 6 2 4]]]]]])
+
+(alignments '(([a b c])
+              ([d e nil] [nil d e])))
+;; => (([a b c] [d e nil] [nil d e]))
+
+;; => (([2 4 6 3] [[3 4 6 2] [6 2 4 nil] [3 4 6 2] [nil 6 2 4]]))
+;; => (([2 4 6 3] [[3 4 6 2] [6 2 4 nil] [3 4 6 2] [nil 6 2 4]]))
+
 (def __
   (fn [V]
     (let [width (->> (map count V) (apply max))]
@@ -55,17 +87,21 @@
                   (for [i (range (inc diff))]
                     (vec (concat (repeat i nil) v (repeat (- diff i) nil))))))
               (alignments [[v & vs]]
-                (for [v' v]
-                  (if (seq vs)
-                    (spy (str "cons" v') (map #(cons v' %) (alignments vs)))
-                    (list v'))))]
+                (if (seq vs)
+                  (mapcat (fn [configurations]
+                            (for [conf configurations
+                                  option v]
+                              (cons option (list conf)))) (alignments vs))
+                  (list v)))]
         (->> (map positions V)
              (alignments))))))
 
 (__ [  [2 4 6 3]
         [3 4 6 2]
           [6 2 4]  ])
-;; => (([2 4 6 3] ([3 4 6 2] ([6 2 4 nil]) ([nil 6 2 4]))))
+;; => (([2 4 6 3] [3 4 6 2]) ([2 4 6 3] [6 2 4 nil]) ([2 4 6 3] [3 4 6 2]) ([2 4 6 3] [nil 6 2 4]))
+;; => (([2 4 6 3]) ([3 4 6 2]) ([6 2 4 nil] [nil 6 2 4]))
+
 
 ;; => (([2 4 6 3]) ([3 4 6 2]) ([6 2 4 nil] [nil 6 2 4]))
 
