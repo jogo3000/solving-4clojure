@@ -38,6 +38,9 @@
 ;; 2 Length of a vector is the number of elements in the vector.
 
 (comment
+
+  "list? doesn't return true for a seq!"
+
   ;; Useful for checking if all row and col values are distinct
   distinct
   ;; This can be used to align subvectors
@@ -47,37 +50,37 @@
 (defn spy [id x]
   (println id x) x)
 
-(defn down [head options])
-
 ;; positions
 ;; (([2 4 6 3])
 ;;  ([3 4 6 2])
 ;;  ([6 2 4 nil] [nil 6 2 4]))
 ;;
 
+(defn extract-conf [coll]
+  (loop [coll coll]
+    (if (list? coll) (recur (first coll)) coll)))
+
 (defn alignments [[v & vs]]
   ;; v -> list of lists
   ;; vs -> list of list of lists
   (if (seq vs)
-    (mapcat (fn [configurations]
-              (for [conf configurations
-                    option v]
-                (cons option (list conf)))) (alignments vs))
-    (list v))
+    (map (fn [configurations]
+           (for [conf configurations
+                 option v]
+             (cons option (if (seq? conf) conf (list conf))))) (alignments vs))
+    (list v)))
+
+(comment
+  "Tests for alignment function"
+  (alignments positions)
+  (alignments '(([a b c])
+                ([d e nil] [nil d e])))
+
   )
-
-
 (alignments positions)
+;; => ((([2 4 6 3] ([3 4 6 2] [6 2 4 nil])) ([2 4 6 3] ([3 4 6 2] [nil 6 2 4]))))
+;; => ((([2 4 6 3] ([3 4 6 2] [6 2 4 nil])) ([2 4 6 3] ([3 4 6 2] [nil 6 2 4]))))
 
-
-;; => ([[[2 4 6 3] [[[3 4 6 2] [[6 2 4 nil]]] [[3 4 6 2] [[nil 6 2 4]]]]]])
-
-(alignments '(([a b c])
-              ([d e nil] [nil d e])))
-;; => (([a b c] [d e nil] [nil d e]))
-
-;; => (([2 4 6 3] [[3 4 6 2] [6 2 4 nil] [3 4 6 2] [nil 6 2 4]]))
-;; => (([2 4 6 3] [[3 4 6 2] [6 2 4 nil] [3 4 6 2] [nil 6 2 4]]))
 
 (def __
   (fn [V]
@@ -88,22 +91,20 @@
                     (vec (concat (repeat i nil) v (repeat (- diff i) nil))))))
               (alignments [[v & vs]]
                 (if (seq vs)
-                  (mapcat (fn [configurations]
-                            (for [conf configurations
-                                  option v]
-                              (cons option (list conf)))) (alignments vs))
+                  (map (fn [configurations]
+                         (for [conf configurations
+                               option v]
+                           (cons option (if (seq? conf) conf (list conf))))) (alignments vs))
                   (list v)))]
         (->> (map positions V)
              (alignments))))))
 
-(__ [  [2 4 6 3]
-        [3 4 6 2]
-          [6 2 4]  ])
-;; => (([2 4 6 3] [3 4 6 2]) ([2 4 6 3] [6 2 4 nil]) ([2 4 6 3] [3 4 6 2]) ([2 4 6 3] [nil 6 2 4]))
-;; => (([2 4 6 3]) ([3 4 6 2]) ([6 2 4 nil] [nil 6 2 4]))
+(__ '[[A B C D]
+         [A C D B]
+         [B A D C]
+         [D C A B]])
+;; => (([A B C D]) ([A C D B]) ([B A D C]) ([D C A B]))
 
-
-;; => (([2 4 6 3]) ([3 4 6 2]) ([6 2 4 nil] [nil 6 2 4]))
 
 (= (__ '[[A B C D]
          [A C D B]
