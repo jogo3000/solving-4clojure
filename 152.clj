@@ -44,6 +44,8 @@
   "So i was fighting for a very long time in producing all of the possible alignments. After that it was pretty much trivial
 to get the rest, even though I made some simple mistakes in determining correct ranges. Unfortunately this solution is too slow now.
 I need to make it faster."
+
+  "Latin squares seems to be too slow. Either we want to avoid solving it or we want to speed it up even further"
   )
 
 (defn spy [id x]
@@ -59,7 +61,7 @@ I need to make it faster."
                   (for [i (range (inc diff))]
                     (vec (concat (repeat i nil) v (repeat (- diff i) nil))))))
               (alignments [[v & vs]]
-                (if (seq vs)
+                (if vs
                   (let [alignments-vs (alignments vs)]
                     (if (seq? (ffirst alignments-vs))
                       (map (fn [configurations]
@@ -71,14 +73,7 @@ I need to make it faster."
                                    option v]
                                (cons option (list conf)))) alignments-vs)))
                   (list v)))
-              (latin-squares [A n]
-                (let [width (->> (map count A) (apply max))
-                      height (count A)
-                      starting-points (for [y (range (inc height))
-                                            x (range (inc width))
-                                            :when (and (<= x (- width n))
-                                                       (<= y (- height n)))] [y x])]
-                  (letfn [(latin-square [[y x]]
+              (latin-square [A n [y x]]
                             (let [rows (range y (+ n y))
                                   cols (range x (+ n x))
                                   all-vals (for [y' rows
@@ -92,17 +87,37 @@ I need to make it faster."
                                                     (map set)
                                                     (every? #(= (count %) n)))]
                                   (when rows-ok?
-                                    (let [cols-ok? (->> (for [x' cols]
+                                    (let [cols (->> (for [x' cols]
                                                       (for [y' rows] (get-in A [y' x'])))
                                                     (map set)
-                                                    (every? #(= (count %) n)))]
-                                      (when cols-ok?
+                                                    (map-indexed (fn [coln col]
+                                                                   [coln (= (count col) n)])))
+                                          cols-ok? (every? second cols)]
+                                      (if cols-ok?
                                         (let [freqs (frequencies all-vals)
                                               vals-ok? (and (->> (keys freqs) count (= n))
                                                             (->> (vals freqs) (apply =)))]
-                                          (when vals-ok? all-vals)))))))))]
-                    (->> (map latin-square starting-points)
-                         (remove nil?)))))]
+                                          (when vals-ok? [:ok all-vals]))
+                                        [:cols (first (last cols))])))))))
+              (latin-squares [A n]
+                (let [width (->> (map count A) (apply max))
+                      height (count A)
+                      starting-points (for [y (range (inc height))
+                                            x (range (inc width))
+                                            :when (and (<= x (- width n))
+                                                       (<= y (- height n)))] [y x])]
+                  (loop [starting-points starting-points
+                         found-squares '()]
+                    ;; If last column is not ok we can skip a lot
+                    (if-not (seq starting-points) found-squares
+                            (let [point (first starting-points)
+                                  result (latin-square A n point)]
+                              (if result
+                                (let [[code valz] result]
+                                  (if (= :ok code)
+                                    (recur (rest starting-points) (cons valz found-squares))
+                                    (recur (drop valz starting-points) found-squares)))
+                                (recur (rest starting-points) found-squares)))))))]
         (let [width (->> (map count V) (apply max))]
           (->> (map positions V)
                (alignments)
@@ -119,13 +134,15 @@ I need to make it faster."
                (into {})))))))
 
 
+
+
 (time
- (__ [[8 6 7 3 2 5 1 4]
-      [6 8 3 7]
-      [7 3 8 6]
-      [3 7 6 8 1 4 5 2]
-      [1 8 5 2 4]
-      [8 1 2 4 5]]))
+ (dotimes [_ 100] (__ [[8 6 7 3 2 5 1 4]
+                      [6 8 3 7]
+                      [7 3 8 6]
+                      [3 7 6 8 1 4 5 2]
+                      [1 8 5 2 4]
+                      [8 1 2 4 5]])))
 
 ;;"Elapsed time: 5139.755102 msecs"
 ;;"Elapsed time: 5071.759706 msecs" <- reused range calls, I don't think it had an effect
@@ -140,6 +157,11 @@ I need to make it faster."
 ;; "Elapsed time: 207.271753 msecs" <- Looks like sets are faster
 ;; "Elapsed time: 234.568465 msecs" <- avoid iffing inside a for loop
 ;; "Elapsed time: 214.715225 msecs" <- avoid iffing inside a for loop 2
+;; "Elapsed time: 211.766895 msecs" <- avoid redefining latinsquares
+;; starting to use rounds of 100
+;; "Elapsed time: 13955.080994 msecs"
+;; "Elapsed time: 14065.124266 msecs" <- skip cols when possible
+;; "Elapsed time: 13390.073665 msecs" <- removed one seq call
 
 (= (__ '[[A B C D]
          [A C D B]
