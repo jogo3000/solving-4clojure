@@ -95,28 +95,102 @@
                          (for [conf configurations
                                option v]
                            (cons option (if (seq? conf) conf (list conf))))) (alignments vs))
-                  (list v)))]
+                  (list v)))
+              (latin-squares [A n]
+                (let [width (->> (map count A) (apply max))
+                      height (count A)
+                      starting-points (for [y (range height)
+                                            x (range width)
+                                            :when (and (<= x width)
+                                                       (<= y height))] [y x])]
+                  (letfn [(latin-square? [[y x]]
+                            (let [rows-ok? (->> (for [y' (range y (+ n y))]
+                                                  (for [x' (range x (+ n x))] (get-in A [y' x'])))
+                                                (map set)
+                                                (every? #(= (count %) n)))
+                                  cols-ok? (->> (for [x' (range x (+ n x))]
+                                                  (for [y' (range y (+ n y))] (get-in A [y' x'])))
+                                                (map set)
+                                                (every? #(= (count %) n)))
+                                  all-vals (for [y' (range y (+ n y))
+                                                 x' (range x (+ n x))]
+                                             (get-in A [y' x']))
+                                  no-nils? (every? identity all-vals)
+                                  freqs (frequencies all-vals)
+                                  vals-ok? (and (->> (keys freqs) count (= n))
+                                                (->> (vals freqs) (apply =)))]
+                              (and cols-ok? rows-ok? no-nils? vals-ok?)))]
+                    (->> (filter latin-square? starting-points)
+                         (map (fn [[y x]]
+                                (for [y' (range y (+ n y))
+                                      x' (range x (+ n x))]
+                                  (get-in A [y' x']))))))))]
         (let [width (->> (map count V) (apply max))]
           (->> (map positions V)
                (alignments)
                first ;; There's an extra list wrapping at this level
                (map vec)
-               ))))))
+               (mapcat (fn [alignment]
+                         (->> (range 2 (inc width))
+                              (map #(vector % (set (latin-squares alignment %)))))))
+               (filter #(not (empty? (second %))))
+               (map #(apply hash-map %))
+               (merge-with into)
+               (apply merge)
+               (map (fn [[k v]]
+                      [k (count v)]))
+               (into {})))))))
+
+
+(__ [[3 1 2]
+     [1 2 3 1 3 4]
+     [2 3 1 3]    ])
+
+
+(__ [[8 6 7 3 2 5 1 4]
+     [6 8 3 7]
+     [7 3 8 6]
+     [3 7 6 8 1 4 5 2]
+     [1 8 5 2 4]
+     [8 1 2 4 5]])
+;; => {4 1, 3 1, 2 3}
+;; should be {4 1, 3 1, 2 7}
+
+
+
+
+(latin-squares [[3 1 2]
+                [1 2 3 1 3 4]
+                [2 3 1 3]    ] 2)
+;; => {3 1, 2 1}
+; should be {3 1, 2 2}
+
+
+
+(__ '[[A B C D E F]
+      [B C D E F A]
+      [C D E F A B]
+      [D E F A B C]
+      [E F A B C D]
+      [F A B C D E]])
+;; => ({6 #{(A B C D E F B C D E F A C D E F A B D E F A B C E F A B C D F A B C D E)}})
+;; => ([[A B C D E F] [B C D E F A] [C D E F A B] [D E F A B C] [E F A B C D] [F A B C D E]])
+;; => ((() () () () ((A B C D E F B C D E F A C D E F A B D E F A B C E F A B C D F A B C D E))))
+
 
 (defn latin-squares [A n]
   (let [width (->> (map count A) (apply max))
         height (count A)
-        starting-points (for [y (range n)
-                              x (range n)
+        starting-points (for [y (range (inc n))
+                              x (range (inc n))
                               :when (and (<= x width)
                                          (<= y height))] [y x])]
     (letfn [(latin-square? [[y x]]
-              ;; FIXME these are not cols, they are rows
-              (let [cols-ok? (->> (for [y' (range y (+ n y))] (get A y'))
+              (let [rows-ok? (->> (for [y' (range y (+ n y))]
+                                    (for [x' (range x (+ n x))] (get-in A [y' x'])))
                                   (map set)
                                   (every? #(= (count %) n)))
-                    ;; FIXME are these actually rows now that I think of it?
-                    rows-ok? (->> (for [x' (range x (+ n x))]
+                    cols-ok? (->> (for [x' (range x (+ n x))]
                                     (for [y' (range y (+ n y))] (get-in A [y' x'])))
                                   (map set)
                                   (every? #(= (count %) n)))
@@ -127,23 +201,26 @@
                     freqs (frequencies all-vals)
                     vals-ok? (and (->> (keys freqs) count (= n))
                                   (->> (vals freqs) (apply =)))]
-                (println y x cols-ok? rows-ok? no-nils? vals-ok?)
                 (and cols-ok? rows-ok? no-nils? vals-ok?)))]
-      (spy "starting points" starting-points)
-      (filter latin-square? starting-points))))
+      (->> (filter latin-square? starting-points)
+           (map (fn [[y x]]
+                  (for [y' (range y (+ n y))
+                        x' (range x (+ n x))]
+                    (get-in A [y' x']))))))))
 
 
 (latin-squares '[[A B C D]
                  [B A D C]
                  [D C B A]
                  [C D A B]] 2)
+;; => ((A B B A) (C D D C) (D C C D) (B A A B))
 ;; => () should be 4
 
 
 (__ '[[A B C D]
-         [A C D B]
-         [B A D C]
-         [D C A B]])
+      [A C D B]
+      [B A D C]
+      [D C A B]])
 ;; => (([A B C D]) ([A C D B]) ([B A D C]) ([D C A B]))
 
 (= (__ '[[A B C D]
