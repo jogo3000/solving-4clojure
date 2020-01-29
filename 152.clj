@@ -111,9 +111,11 @@
                               :when (and (<= x width)
                                          (<= y height))] [y x])]
     (letfn [(latin-square? [[y x]]
+              ;; FIXME these are not cols, they are rows
               (let [cols-ok? (->> (for [y' (range y (+ n y))] (get A y'))
                                   (map set)
                                   (every? #(= (count %) n)))
+                    ;; FIXME are these actually rows now that I think of it?
                     rows-ok? (->> (for [x' (range x (+ n x))]
                                     (for [y' (range y (+ n y))] (get-in A [y' x'])))
                                   (map set)
@@ -125,7 +127,9 @@
                     freqs (frequencies all-vals)
                     vals-ok? (and (->> (keys freqs) count (= n))
                                   (->> (vals freqs) (apply =)))]
+                (println y x cols-ok? rows-ok? no-nils? vals-ok?)
                 (and cols-ok? rows-ok? no-nils? vals-ok?)))]
+      (spy "starting points" starting-points)
       (filter latin-square? starting-points))))
 
 
