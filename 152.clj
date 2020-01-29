@@ -41,45 +41,13 @@
 
   "list? doesn't return true for a seq!"
 
-  ;; Useful for checking if all row and col values are distinct
-  distinct
-  ;; This can be used to align subvectors
-  subvec
+  "So i was fighting for a very long time in producing all of the possible alignments. After that it was pretty much trivial
+to get the rest, even though I made some simple mistakes in determining correct ranges. Unfortunately this solution is too slow now.
+I need to make it faster."
   )
 
 (defn spy [id x]
   (println id x) x)
-
-;; positions
-;; (([2 4 6 3])
-;;  ([3 4 6 2])
-;;  ([6 2 4 nil] [nil 6 2 4]))
-;;
-
-(defn extract-conf [coll]
-  (loop [coll coll]
-    (if (list? coll) (recur (first coll)) coll)))
-
-(defn alignments [[v & vs]]
-  ;; v -> list of lists
-  ;; vs -> list of list of lists
-  (if (seq vs)
-    (map (fn [configurations]
-           (for [conf configurations
-                 option v]
-             (cons option (if (seq? conf) conf (list conf))))) (alignments vs))
-    (list v)))
-
-(comment
-  "Tests for alignment function"
-  (alignments positions)
-  (alignments '(([a b c])
-                ([d e nil] [nil d e])))
-
-  )
-(alignments positions)
-;; => ((([2 4 6 3] ([3 4 6 2] [6 2 4 nil])) ([2 4 6 3] ([3 4 6 2] [nil 6 2 4]))))
-;; => ((([2 4 6 3] ([3 4 6 2] [6 2 4 nil])) ([2 4 6 3] ([3 4 6 2] [nil 6 2 4]))))
 
 
 (def __
