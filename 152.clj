@@ -50,6 +50,7 @@ I need to make it faster."
   (println id x) x)
 
 
+
 (def __
   (fn [V]
     (let [width (->> (map count V) (apply max))]
@@ -59,19 +60,25 @@ I need to make it faster."
                     (vec (concat (repeat i nil) v (repeat (- diff i) nil))))))
               (alignments [[v & vs]]
                 (if (seq vs)
-                  (map (fn [configurations]
-                         (for [conf configurations
-                               option v]
-                           (cons option (if (seq? conf) conf (list conf))))) (alignments vs))
+                  (let [alignments-vs (alignments vs)]
+                    (if (seq? (ffirst alignments-vs))
+                      (map (fn [configurations]
+                             (for [conf configurations
+                                   option v]
+                               (cons option conf))) alignments-vs)
+                      (map (fn [configurations]
+                             (for [conf configurations
+                                   option v]
+                               (cons option (list conf)))) alignments-vs)))
                   (list v)))
               (latin-squares [A n]
                 (let [width (->> (map count A) (apply max))
                       height (count A)
                       starting-points (for [y (range (inc height))
                                             x (range (inc width))
-                                            :when (and (<= x width)
-                                                       (<= y height))] [y x])]
-                  (letfn [(latin-square? [[y x]]
+                                            :when (and (<= x (- width n))
+                                                       (<= y (- height n)))] [y x])]
+                  (letfn [(latin-square [[y x]]
                             (let [rows (range y (+ n y))
                                   cols (range x (+ n x))
                                   all-vals (for [y' rows
@@ -80,7 +87,8 @@ I need to make it faster."
                                   no-nils? (every? identity all-vals)]
                               (when no-nils?
                                 (let [rows-ok? (->> (for [y' rows]
-                                                      (for [x' cols] (get-in A [y' x'])))
+                                                      (for [x' cols]
+                                                        (get-in A [y' x'])))
                                                     (map set)
                                                     (every? #(= (count %) n)))]
                                   (when rows-ok?
@@ -92,12 +100,9 @@ I need to make it faster."
                                         (let [freqs (frequencies all-vals)
                                               vals-ok? (and (->> (keys freqs) count (= n))
                                                             (->> (vals freqs) (apply =)))]
-                                          (and cols-ok? rows-ok? no-nils? vals-ok?)))))))))]
-                    (->> (filter latin-square? starting-points)
-                         (map (fn [[y x]]
-                                (for [y' (range y (+ n y))
-                                      x' (range x (+ n x))]
-                                  (get-in A [y' x']))))))))]
+                                          (when vals-ok? all-vals)))))))))]
+                    (->> (map latin-square starting-points)
+                         (remove nil?)))))]
         (let [width (->> (map count V) (apply max))]
           (->> (map positions V)
                (alignments)
@@ -128,6 +133,13 @@ I need to make it faster."
 ;; 4clojure doesn't think so. It must be a pretty slow machine.
 ;; "Elapsed time: 631.49424 msecs" <- give up when rows are not ok. Not improving
 ;; "Elapsed time: 461.786602 msecs" <- give up when cols are not ok. Not improving!
+;; "Elapsed time: 460.712164 msecs" <- reuse already gathered all-vals. Not improving!
+;; "Elapsed time: 230.110953 msecs" <- starting points: do not start where you can't fit a square of requested size
+;; Not enough! Wow. Clojure has become much faster from the day
+;; "Elapsed time: 256.084199 msecs" <- intead of sets use distinct
+;; "Elapsed time: 207.271753 msecs" <- Looks like sets are faster
+;; "Elapsed time: 234.568465 msecs" <- avoid iffing inside a for loop
+;; "Elapsed time: 214.715225 msecs" <- avoid iffing inside a for loop 2
 
 (= (__ '[[A B C D]
          [A C D B]
