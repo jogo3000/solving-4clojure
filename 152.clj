@@ -73,22 +73,26 @@ I need to make it faster."
                                                        (<= y height))] [y x])]
                   (letfn [(latin-square? [[y x]]
                             (let [rows (range y (+ n y))
-                                  rows-ok? (->> (for [y' (range y (+ n y))]
-                                                  (for [x' (range x (+ n x))] (get-in A [y' x'])))
-                                                (map set)
-                                                (every? #(= (count %) n)))
-                                  cols-ok? (->> (for [x' (range x (+ n x))]
-                                                  (for [y' (range y (+ n y))] (get-in A [y' x'])))
-                                                (map set)
-                                                (every? #(= (count %) n)))
-                                  all-vals (for [y' (range y (+ n y))
-                                                 x' (range x (+ n x))]
+                                  cols (range x (+ n x))
+                                  all-vals (for [y' rows
+                                                 x' cols]
                                              (get-in A [y' x']))
-                                  no-nils? (every? identity all-vals)
-                                  freqs (frequencies all-vals)
-                                  vals-ok? (and (->> (keys freqs) count (= n))
-                                                (->> (vals freqs) (apply =)))]
-                              (and cols-ok? rows-ok? no-nils? vals-ok?)))]
+                                  no-nils? (every? identity all-vals)]
+                              (when no-nils?
+                                (let [rows-ok? (->> (for [y' rows]
+                                                      (for [x' cols] (get-in A [y' x'])))
+                                                    (map set)
+                                                    (every? #(= (count %) n)))]
+                                  (when rows-ok?
+                                    (let [cols-ok? (->> (for [x' cols]
+                                                      (for [y' rows] (get-in A [y' x'])))
+                                                    (map set)
+                                                    (every? #(= (count %) n)))]
+                                      (when cols-ok?
+                                        (let [freqs (frequencies all-vals)
+                                              vals-ok? (and (->> (keys freqs) count (= n))
+                                                            (->> (vals freqs) (apply =)))]
+                                          (and cols-ok? rows-ok? no-nils? vals-ok?)))))))))]
                     (->> (filter latin-square? starting-points)
                          (map (fn [[y x]]
                                 (for [y' (range y (+ n y))
@@ -110,11 +114,6 @@ I need to make it faster."
                (into {})))))))
 
 
-(__ [[3 1 2]
-     [1 2 3 1 3 4]
-     [2 3 1 3]    ])
-
-
 (time
  (__ [[8 6 7 3 2 5 1 4]
       [6 8 3 7]
@@ -123,78 +122,12 @@ I need to make it faster."
       [1 8 5 2 4]
       [8 1 2 4 5]]))
 
-"Elapsed time: 5139.755102 msecs"
-;; => {4 1, 3 1, 2 7}
-;; => {4 1, 3 1, 2 3}
-;; => {4 1, 3 1, 2 3}
-;; should be {4 1, 3 1, 2 7}
-
-
-
-
-(latin-squares [[3 1 2]
-                [1 2 3 1 3 4]
-                [2 3 1 3]    ] 2)
-;; => {3 1, 2 1}
-; should be {3 1, 2 2}
-
-
-
-(__ '[[A B C D E F]
-      [B C D E F A]
-      [C D E F A B]
-      [D E F A B C]
-      [E F A B C D]
-      [F A B C D E]])
-;; => ({6 #{(A B C D E F B C D E F A C D E F A B D E F A B C E F A B C D F A B C D E)}})
-;; => ([[A B C D E F] [B C D E F A] [C D E F A B] [D E F A B C] [E F A B C D] [F A B C D E]])
-;; => ((() () () () ((A B C D E F B C D E F A C D E F A B D E F A B C E F A B C D F A B C D E))))
-
-
-(defn latin-squares [A n]
-  (let [width (->> (map count A) (apply max))
-        height (count A)
-        starting-points (for [y (range (inc n))
-                              x (range (inc n))
-                              :when (and (<= x width)
-                                         (<= y height))] [y x])]
-    (letfn [(latin-square? [[y x]]
-              (let [rows-ok? (->> (for [y' (range y (+ n y))]
-                                    (for [x' (range x (+ n x))] (get-in A [y' x'])))
-                                  (map set)
-                                  (every? #(= (count %) n)))
-                    cols-ok? (->> (for [x' (range x (+ n x))]
-                                    (for [y' (range y (+ n y))] (get-in A [y' x'])))
-                                  (map set)
-                                  (every? #(= (count %) n)))
-                    all-vals (for [y' (range y (+ n y))
-                                   x' (range x (+ n x))]
-                               (get-in A [y' x']))
-                    no-nils? (every? identity all-vals)
-                    freqs (frequencies all-vals)
-                    vals-ok? (and (->> (keys freqs) count (= n))
-                                  (->> (vals freqs) (apply =)))]
-                (and cols-ok? rows-ok? no-nils? vals-ok?)))]
-      (->> (filter latin-square? starting-points)
-           (map (fn [[y x]]
-                  (for [y' (range y (+ n y))
-                        x' (range x (+ n x))]
-                    (get-in A [y' x']))))))))
-
-
-(latin-squares '[[A B C D]
-                 [B A D C]
-                 [D C B A]
-                 [C D A B]] 2)
-;; => ((A B B A) (C D D C) (D C C D) (B A A B))
-;; => () should be 4
-
-
-(__ '[[A B C D]
-      [A C D B]
-      [B A D C]
-      [D C A B]])
-;; => (([A B C D]) ([A C D B]) ([B A D C]) ([D C A B]))
+;;"Elapsed time: 5139.755102 msecs"
+;;"Elapsed time: 5071.759706 msecs" <- reused range calls, I don't think it had an effect
+;; "Elapsed time: 399.252876 msecs" <- give up if square contains nils. This is probably enough!
+;; 4clojure doesn't think so. It must be a pretty slow machine.
+;; "Elapsed time: 631.49424 msecs" <- give up when rows are not ok. Not improving
+;; "Elapsed time: 461.786602 msecs" <- give up when cols are not ok. Not improving!
 
 (= (__ '[[A B C D]
          [A C D B]
