@@ -96,15 +96,51 @@
                                option v]
                            (cons option (if (seq? conf) conf (list conf))))) (alignments vs))
                   (list v)))]
-        (->> (map positions V)
-             (alignments))))))
+        (let [width (->> (map count V) (apply max))]
+          (->> (map positions V)
+               (alignments)
+               first ;; There's an extra list wrapping at this level
+               (map vec)
+               ))))))
+
+(defn latin-squares [A n]
+  (let [width (->> (map count A) (apply max))
+        height (count A)
+        starting-points (for [y (range n)
+                              x (range n)
+                              :when (and (<= x width)
+                                         (<= y height))] [y x])]
+    (letfn [(latin-square? [[y x]]
+              (let [cols-ok? (->> (for [y' (range y (+ n y))] (get A y'))
+                                  (map set)
+                                  (every? #(= (count %) n)))
+                    rows-ok? (->> (for [x' (range x (+ n x))]
+                                    (for [y' (range y (+ n y))] (get-in A [y' x'])))
+                                  (map set)
+                                  (every? #(= (count %) n)))
+                    all-vals (for [y' (range y (+ n y))
+                                   x' (range x (+ n x))]
+                               (get-in A [y' x']))
+                    no-nils? (every? identity all-vals)
+                    freqs (frequencies all-vals)
+                    vals-ok? (and (->> (keys freqs) count (= n))
+                                  (->> (vals freqs) (apply =)))]
+                (and cols-ok? rows-ok? no-nils? vals-ok?)))]
+      (filter latin-square? starting-points))))
+
+
+(latin-squares '[[A B C D]
+                 [B A D C]
+                 [D C B A]
+                 [C D A B]] 2)
+;; => () should be 4
+
 
 (__ '[[A B C D]
          [A C D B]
          [B A D C]
          [D C A B]])
 ;; => (([A B C D]) ([A C D B]) ([B A D C]) ([D C A B]))
-
 
 (= (__ '[[A B C D]
          [A C D B]
