@@ -99,12 +99,13 @@
               (latin-squares [A n]
                 (let [width (->> (map count A) (apply max))
                       height (count A)
-                      starting-points (for [y (range height)
-                                            x (range width)
+                      starting-points (for [y (range (inc height))
+                                            x (range (inc width))
                                             :when (and (<= x width)
                                                        (<= y height))] [y x])]
                   (letfn [(latin-square? [[y x]]
-                            (let [rows-ok? (->> (for [y' (range y (+ n y))]
+                            (let [rows (range y (+ n y))
+                                  rows-ok? (->> (for [y' (range y (+ n y))]
                                                   (for [x' (range x (+ n x))] (get-in A [y' x'])))
                                                 (map set)
                                                 (every? #(= (count %) n)))
@@ -135,8 +136,7 @@
                               (map #(vector % (set (latin-squares alignment %)))))))
                (filter #(not (empty? (second %))))
                (map #(apply hash-map %))
-               (merge-with into)
-               (apply merge)
+               (apply merge-with into)
                (map (fn [[k v]]
                       [k (count v)]))
                (into {})))))))
@@ -147,12 +147,17 @@
      [2 3 1 3]    ])
 
 
-(__ [[8 6 7 3 2 5 1 4]
-     [6 8 3 7]
-     [7 3 8 6]
-     [3 7 6 8 1 4 5 2]
-     [1 8 5 2 4]
-     [8 1 2 4 5]])
+(time
+ (__ [[8 6 7 3 2 5 1 4]
+      [6 8 3 7]
+      [7 3 8 6]
+      [3 7 6 8 1 4 5 2]
+      [1 8 5 2 4]
+      [8 1 2 4 5]]))
+
+"Elapsed time: 5139.755102 msecs"
+;; => {4 1, 3 1, 2 7}
+;; => {4 1, 3 1, 2 3}
 ;; => {4 1, 3 1, 2 3}
 ;; should be {4 1, 3 1, 2 7}
 
