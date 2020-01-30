@@ -55,9 +55,9 @@ I need to make it faster."
 
 (def __
   (fn [V]
-    (let [width (->> (map count V) (apply max))]
+    (let [^Integer width (->> (map count V) (apply max))]
       (letfn [(positions [v]
-                (let [diff (- width (count v))]
+                (let [^Integer diff (- width (count v))]
                   (for [i (range (inc diff))]
                     (vec (concat (repeat i nil) v (repeat (- diff i) nil))))))
               (alignments [[v & vs]]
@@ -73,67 +73,70 @@ I need to make it faster."
                                    option v]
                                (cons option (list conf)))) alignments-vs)))
                   (list v)))
-              (latin-square [A n [y x]]
-                            (let [rows (range y (+ n y))
-                                  cols (range x (+ n x))
-                                  all-vals (for [y' rows
-                                                 x' cols]
-                                             (get-in A [y' x']))
-                                  no-nils? (every? identity all-vals)]
-                              (when no-nils?
-                                (let [rows-ok? (->> (for [y' rows]
-                                                      (for [x' cols]
-                                                        (get-in A [y' x'])))
-                                                    (map set)
-                                                    (every? #(= (count %) n)))]
-                                  (when rows-ok?
-                                    (let [cols (->> (for [x' cols]
-                                                      (for [y' rows] (get-in A [y' x'])))
-                                                    (map set)
-                                                    (map-indexed (fn [coln col]
-                                                                   [coln (= (count col) n)])))
-                                          cols-ok? (every? second cols)]
-                                      (if cols-ok?
-                                        (let [freqs (frequencies all-vals)
-                                              vals-ok? (and (->> (keys freqs) count (= n))
-                                                            (->> (vals freqs) (apply =)))]
-                                          (when vals-ok? [:ok all-vals]))
-                                        [:cols (first (last cols))])))))))
-              (latin-squares [A n]
+              (square [A ^Integer n [^Integer y ^Integer x]]
+                (->> (subvec A y (+ n y))
+                     (mapv #(subvec % x (+ n x)))))
+              (collect-squares [[latin not-latin :as processed] S]
+                (cond (not-latin S) processed
+                      (latin S) processed
+                      :else (if (let [all-vals (mapcat concat S)]
+                                  (when (every? identity all-vals)
+                                    (when (every? (fn [row]
+                                                    (loop [found #{}
+                                                           [r & rs] row]
+                                                      (if (found r) false
+                                                          (if-not (seq rs) true
+                                                                  (recur (conj found r) rs))))) S)
+                                      (let [size (count S)
+                                            max-p (dec size)]
+                                        (when (loop [y 0
+                                                     x 0
+                                                     found #{}]
+                                                (if (= max-p x y) true
+                                                    (if (= y size) (recur 0 (inc x) #{})
+                                                        (let [v (get-in S [y x])]
+                                                          (if (found v) false
+                                                              (recur (inc y) x (conj found v)))))))
+                                          (let [freqs (frequencies all-vals)]
+                                            (and (->> (keys freqs) count (= size))
+                                                 (->> (vals freqs) (apply =)))))))))
+                              (list (conj latin S) not-latin)
+                              (list latin (conj not-latin S)))))
+              (latin-squares [processed-squares A ^Integer n]
                 (let [width (->> (map count A) (apply max))
                       height (count A)
                       starting-points (for [y (range (inc height))
                                             x (range (inc width))
                                             :when (and (<= x (- width n))
-                                                       (<= y (- height n)))] [y x])]
-                  (loop [starting-points starting-points
-                         found-squares '()]
-                    ;; If last column is not ok we can skip a lot
-                    (if-not (seq starting-points) found-squares
-                            (let [point (first starting-points)
-                                  result (latin-square A n point)]
-                              (if result
-                                (let [[code valz] result]
-                                  (if (= :ok code)
-                                    (recur (rest starting-points) (cons valz found-squares))
-                                    (recur (drop valz starting-points) found-squares)))
-                                (recur (rest starting-points) found-squares)))))))]
-        (let [width (->> (map count V) (apply max))]
+                                                       (<= y (- height n))
+                                                       (get-in A [y x])
+                                                       (get-in A [(+ y (dec n)) x])
+                                                       (get-in A [y (+ x (dec n))])
+                                                       (get-in A [(+ y (dec n)) (+ x (dec n))]))] [y x])]
+                  (reduce
+                   (fn [processed-squares point]
+                     (->> (square A n point)
+                          (collect-squares processed-squares))) processed-squares starting-points)))]
+        (let [^Integer width (->> (map count V) (apply max))]
           (->> (map positions V)
                (alignments)
                first ;; There's an extra list wrapping at this level
                (map vec)
-               (mapcat (fn [alignment]
+               (reduce (fn [processed alignment]
                          (->> (range 2 (inc width))
-                              (map #(vector % (set (latin-squares alignment %)))))))
-               (filter #(not (empty? (second %))))
-               (map #(apply hash-map %))
-               (apply merge-with into)
-               (map (fn [[k v]]
-                      [k (count v)]))
-               (into {})))))))
+                              (reduce (fn [processed ^Integer width]
+                                        (latin-squares processed alignment width)) processed))) '(#{} #{}))
+               ;; Collect
+               first
+               (map count)
+               frequencies))))))
 
-
+(__ '[[A B C D]
+      [A C D B]
+      [B A D C]
+      [D C A B]])
+;; => (#{([D C] [A B]) ([A B C D] [A C D B] [B A D C] [D C A B]) ([B A] [D C])} #{([A D] [C A]) ([C D B] [A D C] [C A B]) ([A C] [B A]) ([C D] [A D]) ([A C D] [B A D] [D C A]) ([B C D] [C D B] [A D C]) ([A B] [A C]) ([B C] [C D]) ([C D] [D B]) ([A B C] [A C D] [B A D]) ([D B] [D C])})
+;; => (#{([D C] [A B]) ([A B C D] [A C D B] [B A D C] [D C A B]) ([B A] [D C])} #{})
 
 
 (time
@@ -162,6 +165,20 @@ I need to make it faster."
 ;; "Elapsed time: 13955.080994 msecs"
 ;; "Elapsed time: 14065.124266 msecs" <- skip cols when possible
 ;; "Elapsed time: 13390.073665 msecs" <- removed one seq call
+;; "Elapsed time: 12844.722847 msecs" <- type hinting on functions
+;; "Elapsed time: 12940.255705 msecs" <- even more type hints
+;; "Elapsed time: 11299.149679 msecs" <- further pare down starting points by looking into all corners of the square
+;; "Elapsed time: 10056.425205 msecs" <- using subvec instead of nested for loops to gather rows
+;; "Elapsed time: 9777.816135 msecs" <- further use of subvec
+;; Getting closer! It gets at least some results now. Two larger cases are missing results.
+;; "Elapsed time: 9658.719282 msecs" <- give up the moment a duplicate is found on a row
+;; "Elapsed time: 9283.02525 msecs" <- give up the moment a duplicate is found on a column
+;; Just one more case time outs.
+;; "Elapsed time: 5042.315988 msecs" <- basically memoize the results of checking if square is latin.
+;; Still final case time outs!
+;; "Elapsed time: 5262.872382 msecs" <- check not latin ones first
+;; "Elapsed time: 4988.893582 msecs" <- give up the moment we find a duplicate in a column
+;; "Elapsed time: 4931.172183 msecs" <- remove unnecessary lets
 
 (= (__ '[[A B C D]
          [A C D B]
