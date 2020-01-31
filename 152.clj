@@ -51,6 +51,65 @@ I need to make it faster."
 (defn spy [id x]
   (println id x) x)
 
+(comment
+  (let [diff 3
+        v [1 2]]
+    (for [i (range (inc diff))]
+      #_(vec (concat (repeat i nil) v (repeat (- diff i) nil)))
+      (vec (loop [result
+                  (loop [vs v
+                         result
+                         (loop [result '()
+                                j (- diff i)]
+                           (if (<= j 0) result
+                               (recur (cons nil result) (dec j))))]
+                    (if-not (seq vs) result
+                            (recur (rest vs) (cons (first vs) result))))
+                  j i]
+             (if (<= j 0) result
+                 (recur (cons nil result) (dec j))))) )))
+;; => nil
+
+(time
+ (dotimes [_ 100000000]
+   (let [diff 3
+         v [1 2]
+         nils (repeat nil)]
+
+    (for [i (range (inc diff))]
+      (vec (concat (take i nils) v (take (- diff i) nils)))
+      #_(vec (loop [result
+                  (loop [vs v
+                         result
+                         (loop [result '()
+                                j (- diff i)]
+                           (if (<= j 0) result
+                               (recur (cons nil result) (dec j))))]
+                    (if-not (seq vs) result
+                            (recur (rest vs) (cons (first vs) result))))
+                  j i]
+             (if (<= j 0) result
+                 (recur (cons nil result) (dec j))))) ))))
+
+
+(comment
+  "I guess the next thing to try would be to use a single vector to describe the whole latin square. This would avoid nested get-in
+calls"
+  )
+
+(time (dotimes [_ 100000000]
+        (for [i (range (inc 3))]
+          (vec (concat (repeat i nil) [1 2 3] (repeat (- 3 i) nil))))))
+
+(time (dotimes [_ 100000000]
+        (map #(vec (concat (repeat % nil) [1 2 3] (repeat (- 3 %) nil))) (range (inc 3)))))
+
+(let [vls (range 100)]
+  (letfn [(step [i coll]
+            (when (< i 10)
+              (cons (partition 1 10 coll) (step (inc i) (drop 1 coll)))))]
+    (step 0 vls)))
+
 
 
 (def __
@@ -74,47 +133,46 @@ I need to make it faster."
                                    option v]
                                (cons option (list conf)))) alignments-vs)))
                   (list v)))
-              (square [A ^Integer n [^Integer y ^Integer x]]
-                (->> (subvec A y (+ n y))
-                     (mapv #(subvec % x (+ n x)))))
               (latin-squares [processed-squares A ^Integer n]
                 (let [^Integer dec-n (dec n)
                       ^Integer max-w (- width n)
                       ^Integer max-h (- height n)
                       starting-points (for [y (range (inc max-h))
                                             x (range (inc max-w))
-                                            :when (and (get-in A [(+ y dec-n) x])
-                                                       (get-in A [y (+ x dec-n)])
-                                                       (get-in A [(+ y dec-n) (+ x dec-n)])
-                                                       (get-in A [y x]))] [y x])]
+                                            :when (let [+ydecn (+ y dec-n)
+                                                        +xdecn (+ x dec-n)
+                                                        +yrow (get A +ydecn)]
+                                                    (and (get +yrow x)
+                                                         (get +yrow +xdecn)
+                                                         (let [yrow (get A y)]
+                                                           (get yrow +xdecn)
+                                                           (get yrow x))))] [y x])]
                   (reduce
-                   (fn [[latin not-latin :as processed-squares] point]
-                     (let [S (square A n point)]
+                   (fn [[latin not-latin :as processed-squares] [^Integer y ^Integer x]]
+                     (let [S (->> (subvec A y (+ n y))
+                                  (mapv #(subvec % x (+ n x))))]
                        (cond (not-latin S) processed-squares
                              (latin S) processed-squares
                              :else (if (when (every? (fn [row]
-                                                       (loop [found #{}
+                                                       (loop [found (transient #{})
                                                               [r & rs] row]
                                                          (if-not r false
                                                                  (if (found r) false
                                                                      (if-not (seq rs) true
-                                                                             (recur (conj found r) rs)))))) S)
-                                         (let [size (count S)
-                                               max-p (dec size)]
-                                           (when (loop [y 0
-                                                        x 0
-                                                        found #{}]
-                                                   (if (= max-p x y) true
-                                                       (let [v (get-in S [y x])]
-                                                         (if (found v) false
-                                                             (let [y' (inc y)]
-                                                               (if (= y size)
-                                                                 (recur 0 (inc x) #{})
-                                                                 (recur (inc y) x (conj found v))))))))
-                                             (let [all-vals (mapcat concat S)
-                                                   freqs (frequencies all-vals)]
-                                               (and (->> (keys freqs) count (= size))
-                                                    (->> (vals freqs) (apply =)))))))
+                                                                             (recur (conj! found r) rs)))))) S)
+                                         (when (loop [y 0
+                                                      x 0
+                                                      found (transient #{})]
+                                                 (if (= dec-n x y) true
+                                                     (let [v (get-in S [y x])]
+                                                       (if (found v) false
+                                                           (let [y' (inc y)]
+                                                             (if (= y n)
+                                                               (recur 0 (inc x) (transient #{}))
+                                                               (recur (inc y) x (conj! found v))))))))
+                                           (let [all-vals (mapcat concat S)
+                                                 freqs (frequencies all-vals)]
+                                             (->> (keys freqs) count (= n)))))
                                      (list (conj latin S) not-latin)
                                      (list latin (conj not-latin S))))))
                    processed-squares starting-points)))]
@@ -188,6 +246,12 @@ I need to make it faster."
 ;; "Elapsed time: 3992.484906 msecs" <- combine nil check with unique row value check
 ;; "Elapsed time: 3962.03017 msecs" <- avoid finding all values before it's needed
 ;; "Elapsed time: 3946.890454 msecs" <- avoid extra recur when iterating columns
+;; "Elapsed time: 4042.456866 msecs" <- avoid recounting size again
+;; "Elapsed time: 3980.162678 msecs" <- even more strategic check to pare down squares
+;; "Elapsed time: 3943.343205 msecs" <- avoid calculating (+ x dec-n) many times
+;; "Elapsed time: 3909.525471 msecs" <- remove unnecessary check
+;; "Elapsed time: 2962.141123 msecs" <- avoid double get-in to the same Y coordinate
+;; "Elapsed time: 2999.648337 msecs" <- inlined square function
 
 (= (__ '[[A B C D]
          [A C D B]
