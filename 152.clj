@@ -37,6 +37,8 @@
 ;; 1 Of course, we can consider sequences instead of vectors.
 ;; 2 Length of a vector is the number of elements in the vector.
 
+(require '[clojure.test :refer [deftest is testing run-tests]])
+
 (comment
 
   "list? doesn't return true for a seq!"
@@ -46,71 +48,13 @@ to get the rest, even though I made some simple mistakes in determining correct 
 I need to make it faster."
 
   "Latin squares seems to be too slow. Either we want to avoid solving it or we want to speed it up even further"
-  )
 
-(defn spy [id x]
-  (println id x) x)
-
-(comment
-  (let [diff 3
-        v [1 2]]
-    (for [i (range (inc diff))]
-      #_(vec (concat (repeat i nil) v (repeat (- diff i) nil)))
-      (vec (loop [result
-                  (loop [vs v
-                         result
-                         (loop [result '()
-                                j (- diff i)]
-                           (if (<= j 0) result
-                               (recur (cons nil result) (dec j))))]
-                    (if-not (seq vs) result
-                            (recur (rest vs) (cons (first vs) result))))
-                  j i]
-             (if (<= j 0) result
-                 (recur (cons nil result) (dec j))))) )))
-;; => nil
-
-(time
- (dotimes [_ 100000000]
-   (let [diff 3
-         v [1 2]
-         nils (repeat nil)]
-
-    (for [i (range (inc diff))]
-      (vec (concat (take i nils) v (take (- diff i) nils)))
-      #_(vec (loop [result
-                  (loop [vs v
-                         result
-                         (loop [result '()
-                                j (- diff i)]
-                           (if (<= j 0) result
-                               (recur (cons nil result) (dec j))))]
-                    (if-not (seq vs) result
-                            (recur (rest vs) (cons (first vs) result))))
-                  j i]
-             (if (<= j 0) result
-                 (recur (cons nil result) (dec j))))) ))))
-
-
-(comment
   "I guess the next thing to try would be to use a single vector to describe the whole latin square. This would avoid nested get-in
 calls"
   )
 
-(time (dotimes [_ 100000000]
-        (for [i (range (inc 3))]
-          (vec (concat (repeat i nil) [1 2 3] (repeat (- 3 i) nil))))))
-
-(time (dotimes [_ 100000000]
-        (map #(vec (concat (repeat % nil) [1 2 3] (repeat (- 3 %) nil))) (range (inc 3)))))
-
-(let [vls (range 100)]
-  (letfn [(step [i coll]
-            (when (< i 10)
-              (cons (partition 1 10 coll) (step (inc i) (drop 1 coll)))))]
-    (step 0 vls)))
-
-
+(defn spy [id x]
+  (println id x) x)
 
 (def __
   (fn [V]
@@ -190,18 +134,15 @@ calls"
                (map count)
                frequencies))))))
 
-(__ '[[A B C D]
-      [A C D B]
-      [B A D C]
-      [D C A B]])
 
-(time
- (dotimes [_ 100] (__ [[8 6 7 3 2 5 1 4]
-                      [6 8 3 7]
-                      [7 3 8 6]
-                      [3 7 6 8 1 4 5 2]
-                      [1 8 5 2 4]
-                      [8 1 2 4 5]])))
+(comment "Timing the solution"
+         (time
+          (dotimes [_ 100] (__ [[8 6 7 3 2 5 1 4]
+                                [6 8 3 7]
+                                [7 3 8 6]
+                                [3 7 6 8 1 4 5 2]
+                                [1 8 5 2 4]
+                                [8 1 2 4 5]]))))
 
 ;;"Elapsed time: 5139.755102 msecs"
 ;;"Elapsed time: 5071.759706 msecs" <- reused range calls, I don't think it had an effect
@@ -253,56 +194,113 @@ calls"
 ;; "Elapsed time: 2962.141123 msecs" <- avoid double get-in to the same Y coordinate
 ;; "Elapsed time: 2999.648337 msecs" <- inlined square function
 
-(= (__ '[[A B C D]
-         [A C D B]
-         [B A D C]
-         [D C A B]])
-   {})
 
-(= (__ '[[A B C D E F]
-         [B C D E F A]
-         [C D E F A B]
-         [D E F A B C]
-         [E F A B C D]
-         [F A B C D E]])
-   {6 1})
+(deftest testcases-4clojure
+  (testing "1st case"
 
-(= (__ '[[A B C D]
-         [B A D C]
-         [D C B A]
-         [C D A B]])
-   {4 1, 2 4})
-
-(= (__ '[[B D A C B]
-         [D A B C A]
-         [A B C A B]
-         [B C A B C]
-         [A D B C A]])
-   {3 3})
-
-(= (__ [  [2 4 6 3]
-        [3 4 6 2]
-          [6 2 4]  ])
-   {})
+    (is
+     (= (__ '[[A B C D]
+              [A C D B]
+              [B A D C]
+              [D C A B]])
+        {}))
 
 
 
-(= (__ [[1]
-        [1 2 1 2]
-        [2 1 2 1]
-        [1 2 1 2]
-        []       ])
-   {2 2})
+    (is
 
-(= (__ [[3 1 2]
-        [1 2 3 1 3 4]
-        [2 3 1 3]    ])
-   {3 1, 2 2})
+     (= (__ '[[A B C D E F]
+              [B C D E F A]
+              [C D E F A B]
+              [D E F A B C]
+              [E F A B C D]
+              [F A B C D E]])
+        {6 1}))
 
-(= (__ [[8 6 7 3 2 5 1 4]
-        [6 8 3 7]
-        [7 3 8 6]
-        [3 7 6 8 1 4 5 2]
-              [1 8 5 2 4]
-              [8 1 2 4 5]])
-   {4 1, 3 1, 2 7})
+    (is
+     (= (__ '[[A B C D]
+              [B A D C]
+              [D C B A]
+              [C D A B]])
+        {4 1, 2 4}))
+
+    (is
+     (= (__ '[[B D A C B]
+              [D A B C A]
+              [A B C A B]
+              [B C A B C]
+              [A D B C A]])
+        {3 3}))
+
+
+    (is
+
+     (= (__ [  [2 4 6 3]
+             [3 4 6 2]
+             [6 2 4]  ])
+        {}))
+
+    (is
+
+
+
+     (= (__ [[1]
+             [1 2 1 2]
+             [2 1 2 1]
+             [1 2 1 2]
+             []       ])
+        {2 2}))
+
+    (is
+     (= (__ [[3 1 2]
+             [1 2 3 1 3 4]
+             [2 3 1 3]    ])
+        {3 1, 2 2}))
+
+    (is
+
+     (= (__ [[8 6 7 3 2 5 1 4]
+             [6 8 3 7]
+             [7 3 8 6]
+             [3 7 6 8 1 4 5 2]
+             [1 8 5 2 4]
+             [8 1 2 4 5]])
+        {4 1, 3 1, 2 7}))))
+
+
+(comment "Timing and quickly testing certain things"
+
+         (time (dotimes [_ 100000000]
+                 (for [i (range (inc 3))]
+                   (vec (concat (repeat i nil) [1 2 3] (repeat (- 3 i) nil))))))
+
+         (time (dotimes [_ 100000000]
+                 (map #(vec (concat (repeat % nil) [1 2 3] (repeat (- 3 %) nil))) (range (inc 3)))))
+
+         (let [vls (range 100)]
+           (letfn [(step [i coll]
+                     (when (< i 10)
+                       (cons (partition 1 10 coll) (step (inc i) (drop 1 coll)))))]
+             (step 0 vls)))
+
+(time
+ (dotimes [_ 100000000]
+   (let [diff 3
+         v [1 2]
+         nils (repeat nil)]
+
+     (for [i (range (inc diff))]
+       (vec (concat (take i nils) v (take (- diff i) nils)))
+       #_(vec (loop [result
+                     (loop [vs v
+                            result
+                            (loop [result '()
+                                   j (- diff i)]
+                              (if (<= j 0) result
+                                  (recur (cons nil result) (dec j))))]
+                       (if-not (seq vs) result
+                               (recur (rest vs) (cons (first vs) result))))
+                     j i]
+                (if (<= j 0) result
+                    (recur (cons nil result) (dec j))))) ))))
+         )
