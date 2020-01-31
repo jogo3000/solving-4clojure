@@ -50,7 +50,10 @@ I need to make it faster."
   "Latin squares seems to be too slow. Either we want to avoid solving it or we want to speed it up even further"
 
   "I guess the next thing to try would be to use a single vector to describe the whole latin square. This would avoid nested get-in
-calls"
+calls. You'd have to navigate the square knowing that for example in a 10x10 square the coordinate 11 is the first cell in the second row,
+or (1, 0) in terms of (y, x).
+
+My theory is that I've got only a small gap to reach before it's quick enough."
   )
 
 (defn spy [id x]
@@ -193,6 +196,35 @@ calls"
 ;; "Elapsed time: 3909.525471 msecs" <- remove unnecessary check
 ;; "Elapsed time: 2962.141123 msecs" <- avoid double get-in to the same Y coordinate
 ;; "Elapsed time: 2999.648337 msecs" <- inlined square function
+
+(deftest one-dimensional-squares
+  (let [width 4]
+    (letfn [(positions [v]
+              (let [diff (- width (count v))]
+                (for [i (range (inc diff))]
+                  (vec (concat (repeat i nil) v (repeat (- diff i) nil))))))
+            (alignments [[v & vs]]
+              (if vs
+                (let [alignments-vs (alignments vs)]
+                  (if (seq? (ffirst alignments-vs))
+                    (map (fn [configurations]
+                           (for [conf configurations
+                                 option v]
+                             (cons option conf))) alignments-vs)
+                    (map (fn [configurations]
+                           (for [conf configurations
+                                 option v]
+                             (cons option (list conf)))) alignments-vs)))
+                (list v)))]
+      (let [V [  [2 4 6 3]
+               [3 4 6 2]
+               [6 2 4]  ]
+            width (->> (map count V) (apply max))
+            alignments (->> (map positions V)
+                            (alignments))]
+
+
+        (is (= '([2 4 6 3 3 4 6 2 6 2 4 nil] [2 4 6 3 3 4 6 2 nil 6 2 4]) alignments))))))
 
 
 (deftest testcases-4clojure
