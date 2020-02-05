@@ -59,6 +59,9 @@ My theory is that I've got only a small gap to reach before it's quick enough."
 (defn spy [id x]
   (println id x) x)
 
+(defn silent-spy [id x]
+  (println id) x)
+
 (def __
   (fn [V]
     (let [height (count V)
@@ -108,19 +111,19 @@ My theory is that I've got only a small gap to reach before it's quick enough."
                                                                  (if (found r) false
                                                                      (if-not (seq rs) true
                                                                              (recur (conj! found r) rs)))))) S)
-                                         (when (loop [y 0
-                                                      x 0
-                                                      found (transient #{})]
-                                                 (if (= dec-n x y) true
-                                                     (let [v (get-in S [y x])]
-                                                       (if (found v) false
-                                                           (let [y' (inc y)]
-                                                             (if (= y n)
-                                                               (recur 0 (inc x) (transient #{}))
-                                                               (recur (inc y) x (conj! found v))))))))
-                                           (let [all-vals (mapcat concat S)
-                                                 freqs (frequencies all-vals)]
-                                             (->> (keys freqs) count (= n)))))
+                                         (let [all-vals (vec (mapcat concat S))]
+                                           (when (loop [y 0
+                                                        x 0
+                                                        found (transient #{})]
+                                                   (if (= dec-n x y) true
+                                                       (let [v (get all-vals (+ (* n y) x))]
+                                                         (if (found v) false
+                                                             (let [y' (inc y)]
+                                                               (if (= y n)
+                                                                 (recur 0 (inc x) (transient #{}))
+                                                                 (recur (inc y) x (conj! found v))))))))
+                                             (let [freqs (frequencies all-vals)]
+                                               (->> (keys freqs) count (= n))))))
                                      (list (conj latin S) not-latin)
                                      (list latin (conj not-latin S))))))
                    processed-squares starting-points)))]
@@ -198,6 +201,7 @@ My theory is that I've got only a small gap to reach before it's quick enough."
 ;; "Elapsed time: 2962.141123 msecs" <- avoid double get-in to the same Y coordinate
 ;; "Elapsed time: 2999.648337 msecs" <- inlined square function
 ;; "Elapsed time: 2845.4148 msecs" <- don't search squares which can't be drawn in the alignment
+;; "Elapsed time: 2787.097491 msecs" <- using 1 dimensional square in cols search
 
 (deftest one-dimensional-squares
   (let [width 4]
@@ -208,25 +212,84 @@ My theory is that I've got only a small gap to reach before it's quick enough."
             (alignments [[v & vs]]
               (if vs
                 (let [alignments-vs (alignments vs)]
-                  (if (seq? (ffirst alignments-vs))
-                    (map (fn [configurations]
-                           (for [conf configurations
-                                 option v]
-                             (cons option conf))) alignments-vs)
-                    (map (fn [configurations]
-                           (for [conf configurations
-                                 option v]
-                             (cons option (list conf)))) alignments-vs)))
+                  (map (fn [configurations]
+                         (vec (for [conf configurations
+                                    option v]
+                                (vec (concat option conf))))) alignments-vs))
                 (list v)))]
       (let [V [  [2 4 6 3]
                [3 4 6 2]
                [6 2 4]  ]
             width (->> (map count V) (apply max))
             alignments (->> (map positions V)
-                            (alignments))]
+                            (alignments)
+                            first)]
 
 
-        (is (= '([2 4 6 3 3 4 6 2 6 2 4 nil] [2 4 6 3 3 4 6 2 nil 6 2 4]) alignments))))))
+        (is (= '([2 4 6 3 3 4 6 2 6 2 4 nil] [2 4 6 3 3 4 6 2 nil 6 2 4]) alignments)))
+
+      (let [V '[[A B C D]
+                [A C D B]
+                [B A D C]
+                [D C A B]]
+            width (->> (map count V) (apply max))
+            alignments (->> (map positions V)
+                            (alignments)
+                            first)]
+        (is (= '([A B C D A C D B B A D C D C A B] alignments)))))))
+
+(deftest latin-squares-test
+  (let [width 4
+        height 3]
+    (letfn [(read-square [A y x]
+              (get A (+ (* width y) x)))
+            (latin-squares [processed-squares A ^Integer n]
+              (let [^Integer dec-n (dec n)
+                    ^Integer max-w (- width n)
+                    ^Integer max-h (- height n)
+                    starting-points (for [y (range (inc max-h))
+                                          x (range (inc max-w))
+                                          :when (let [+ydecn (+ y dec-n)
+                                                      +xdecn (+ x dec-n)
+                                                      +yrow (get A +ydecn)]
+                                                  (and (get +yrow x)
+                                                       (get +yrow +xdecn)
+                                                       (let [yrow (get A y)]
+                                                         (get yrow +xdecn)
+                                                         (get yrow x))))] [y x])]
+                (reduce
+                 (fn [[latin not-latin :as processed-squares] [^Integer y ^Integer x]]
+                   (let [S (->> (subvec A y (+ n y))
+                                (mapv #(subvec % x (+ n x))))]
+                     (cond (not-latin S) processed-squares
+                           (latin S) processed-squares
+                           :else (if (when (every? (fn [row]
+                                                     (loop [found #{}
+                                                            [r & rs] row]
+                                                       (if-not r false
+                                                               (if (found r) false
+                                                                   (if-not (seq rs) true
+                                                                           (recur (conj found r) rs)))))) S)
+                                       (when (loop [y 0
+                                                    x 0
+                                                    found #{}]
+                                               (if (= dec-n x y) true
+                                                   (let [v (get-in S [y x])]
+                                                     (if (found v) false
+                                                         (let [y' (inc y)]
+                                                           (if (= y n)
+                                                             (recur 0 (inc x) #{})
+                                                             (recur (inc y) x (conj found v))))))))
+                                         (let [all-vals (mapcat concat S)
+                                               freqs (frequencies all-vals)]
+                                           (->> (keys freqs) count (= n)))))
+                                   (list (conj latin S) not-latin)
+                                   (list latin (conj not-latin S))))))
+                 processed-squares starting-points)))]
+
+      (let [alignments '([2 4 6 4 2 4 6 2 6 2 4 nil] [2 4 6 3 3 4 6 2 nil 6 2 4])
+            found (latin-squares (list #{} #{}) (first alignments) 2)]
+        (is (= false found))))))
 
 
 (deftest testcases-4clojure
