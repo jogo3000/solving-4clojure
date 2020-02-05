@@ -62,7 +62,8 @@ My theory is that I've got only a small gap to reach before it's quick enough."
 (def __
   (fn [V]
     (let [height (count V)
-          ^Integer width (->> (map count V) (apply max))]
+          ^Integer width (->> (map count V) (apply max))
+          min-width (->> (map count V) (apply min))]
       (letfn [(positions [v]
                 (let [^Integer diff (- width (count v))]
                   (for [i (range (inc diff))]
@@ -129,7 +130,7 @@ My theory is that I've got only a small gap to reach before it's quick enough."
                first ;; There's an extra list wrapping at this level
                (map vec)
                (reduce (fn [processed alignment]
-                         (->> (range 2 (inc width))
+                         (->> (range 2 (inc (max min-width 2)))
                               (reduce (fn [processed ^Integer width]
                                         (latin-squares processed alignment width)) processed))) '(#{} #{}))
                ;; Collect
@@ -196,6 +197,7 @@ My theory is that I've got only a small gap to reach before it's quick enough."
 ;; "Elapsed time: 3909.525471 msecs" <- remove unnecessary check
 ;; "Elapsed time: 2962.141123 msecs" <- avoid double get-in to the same Y coordinate
 ;; "Elapsed time: 2999.648337 msecs" <- inlined square function
+;; "Elapsed time: 2845.4148 msecs" <- don't search squares which can't be drawn in the alignment
 
 (deftest one-dimensional-squares
   (let [width 4]
