@@ -41,17 +41,25 @@
                                   :n)
                     missing (- required numbers)]
                 (concat colls (repeat missing (list \*)))))
-            (advance [{[y x] :cursor direction :direction graph :graph}]
+            (right [[y x]]
+              [(dec y) (inc x)])
+            (down [[y x]]
+              [(dec y) (dec x)])
+            (left [[y x]]
+              [(inc y) (dec x)])
+            (up [[y x]]
+              [(inc y) (inc x)])
+            (advance [{coord :cursor direction :direction graph :graph}]
               (let [next-cell (case direction
-                                :right [y (inc x)]
-                                :down [(dec y) x]
-                                :left [y (dec x)]
-                                :up [(inc y) x])
+                                :right (right coord)
+                                :down (down coord)
+                                :left (left coord)
+                                :up (up coord))
                     next-dir (cond
-                               (= direction :right) (if (get graph [(dec (first next-cell)) (second next-cell)]) :right :down)
-                               (= direction :down) (if (get graph [(first next-cell) (dec (second next-cell))]) :down :left)
-                               (= direction :left) (if (get graph [(inc (first next-cell)) (second next-cell)]) :left :up)
-                               (= direction :up) (if (get graph [(first next-cell) (inc (second next-cell))]) :up :right))]
+                               (= direction :right) (if (get graph (down next-cell)) :right :down)
+                               (= direction :down) (if (get graph (left next-cell)) :down :left)
+                               (= direction :left) (if (get graph (up next-cell)) :left :up)
+                               (= direction :up) (if (get graph (right next-cell)) :up :right))]
                 {:graph graph :cursor next-cell :direction next-dir}))]
       (let [graph  (->> (iterate #(* % %) start)
                         (take-while #(<= % end))
@@ -71,9 +79,10 @@
             max-x (apply max (map second coords))
             width (- max-x min-x)
             height (- max-y min-y)]
-        (for [y (range max-y (dec min-y) -1)]
-          (for [x (range min-x (inc max-x))]
-            (get graph [y x])))))))
+        (->> (for [y (range max-y (dec min-y) -1)]
+               (for [x (range min-x (inc max-x))]
+                 (get graph [y x] \space)))
+             (mapv #(apply str %)))))))
 
 (= (__ 2 2) ["2"])
 
