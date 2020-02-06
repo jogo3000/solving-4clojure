@@ -59,14 +59,15 @@ To find the first palindromic number to return, I think a function to tell if nu
                                       '(11))
 
                                   (odd? digit-count)
-                                  (let [next-number (->> (split-odd digits-n digit-count)
+                                  (let [halved (split-odd digits-n digit-count)
+                                        initial-digits (count (digits halved))
+                                        next-number (->> halved
                                                          inc
                                                          digits)
                                         last-digit (last next-number)
                                         first-half (butlast next-number)
                                         new-digit-count (count next-number)]
-                                    (println "odd?" new-digit-count digit-count first-half last-digit)
-                                    (if (>= new-digit-count digit-count)
+                                    (if (> new-digit-count initial-digits)
                                       (concat first-half (reverse first-half))
                                       (concat first-half (list last-digit) (reverse first-half))))
 
@@ -75,7 +76,6 @@ To find the first palindromic number to return, I think a function to tell if nu
                                                          inc
                                                          digits)
                                         new-digit-count (count next-number)]
-                                    (println "even?" new-digit-count digit-count next-number)
                                     (if (> (* 2 new-digit-count) digit-count)
                                       (concat next-number (rest (reverse next-number)))
                                       (concat next-number (reverse next-number)))))))))))]
