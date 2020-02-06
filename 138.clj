@@ -5,25 +5,16 @@
 
 ;; Create a function of two integer arguments: the start and end, respectively. You must create a vector of strings which renders a 45° rotated square of integers which are successive squares from the start point up to and including the end point. If a number comprises multiple digits, wrap them around the shape individually. If there are not enough digits to complete the shape, fill in the rest with asterisk characters. The direction of the drawing should be clockwise, starting from the center of the shape and working outwards, with the initial direction being down and to the right.
 
-(require '[clojure.test :refer [deftest is testing]])
-
 (defn spy [id x]
   (println id x) x)
 
-(defn advance [{[y x] :cursor direction :direction graph :graph}]
-  (let [next-cell (case direction
-                    :right [y (inc x)]
-                    :down [(dec y) (inc x)]
-                    :left [y (dec x)]
-                    :up [(inc y) x])
-        next-dir (cond
-                   (= direction :right) (if (get graph [(dec (first next-cell)) (second next-cell)]) :right :down)
-                   (= direction :down) (if (get graph [(first next-cell) (dec (second next-cell))]) :down :left)
-                   (= direction :left) (if (get graph [(inc (first next-cell)) (second next-cell)]) :left :up)
-                   (= direction :up) (if (get graph [(first next-cell) (inc (second next-cell))]) :up :right))]
-    {:graph graph :cursor next-cell :direction next-dir}))
-
-(take 10 )
+(comment "My first instinct was to create a square and then rotate it. After all, it ended up being much simpler to just generate the final
+coordinates for every cell.
+ - I find the successive squares, then their digits.
+ - Then I find out how many values are missing from a complete square.
+ - Then I append a filler sequence of *s so I can draw a complete square
+ - Then it's a matter of assigning coordinates to the digits and filler characters one by one. I check if I need to turn by looking if there's room in the right hand side of the matrix
+ - Finally render the matrix")
 
 (def __
   (fn [start end]
