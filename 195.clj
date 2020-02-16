@@ -17,20 +17,22 @@ Wait. Is it a sequence of :sibling :nest :sibling ...
   (:require [clojure.test :refer [deftest is]]))
 
 (def __
-  (fn [n]
-    (if (zero? n) #{""}
-        (letfn [(step [coll depth]
-                  (if-not (pos? depth) coll
-                          (let [sibling-path (map #(str "()" %) coll)
-                                right-sibling-path (map #(str % "()") coll)
-                                child-path (map #(str "(" % ")") coll)]
-                            (-> (into sibling-path child-path)
-                                (into right-sibling-path)
-                                set
-                                (step (dec depth))))))]
-          (step #{""} n)))))
+  (fn [pairs]
+    (let [result (atom #{})]
+      (letfn [(step [exp open closed]
+                (if (= open closed pairs) (swap! result #(conj % exp))
+                    (do
+                      (when (< open pairs) (step (str exp "(") (inc open) closed))
+                      (when (< closed open) (step (str exp ")") open (inc closed))))))]
+        (step "" 0 0))
+      @result)))
 
 (__ 3)
+
+
+(map count (map __ (range 10)))
+;; => (0 1 2 5 13 34 89 233 610 1597)
+(+ 0 1 2 5 13 34 89 233 610)
 
 (deftest foreclojure-tests
 
@@ -41,5 +43,7 @@ Wait. Is it a sequence of :sibling :nest :sibling ...
   (is (= 16796 (count (__ 10))))
 
   (is (= (nth (sort (filter #(.contains ^String % "(()()()())") (__ 9))) 6) "(((()()()())(())))"))
+
+  (is (contains? (__ 9) "(((()()()())(())))"))
 
   (is (= (nth (sort (__ 12)) 5000) "(((((()()()()()))))(()))")))
