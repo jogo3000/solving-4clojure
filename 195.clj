@@ -19,25 +19,18 @@ Wait. Is it a sequence of :sibling :nest :sibling ...
 (def __
   (fn [n]
     (if (zero? n) #{""}
-        (letfn [(orders [n]
-                  (loop [coll [[]]
-                         n n]
-                    (if-not (pos? n) coll
-                            (recur (into
-                                    (into (mapv #(conj % :sibling) coll)
-                                          (mapv #(conj % :child) coll))
-                                    (mapv #(conj % :uncle) coll)) (dec n)))))
-                (render [[c & cs]]
-                  (when c
-                    (case c
-                      :sibling (str "()" (render cs))
-                      :child   (str "(" (render cs) ")")
-                      :uncle   (str (render cs) "()"))))]
-          (->> (orders n)
-               (map render)
-               set)))))
+        (letfn [(step [coll depth]
+                  (if-not (pos? depth) coll
+                          (let [sibling-path (map #(str "()" %) coll)
+                                right-sibling-path (map #(str % "()") coll)
+                                child-path (map #(str "(" % ")") coll)]
+                            (-> (into sibling-path child-path)
+                                (into right-sibling-path)
+                                set
+                                (step (dec depth))))))]
+          (step #{""} n)))))
 
-(__ 5)
+(__ 3)
 
 (deftest foreclojure-tests
 
