@@ -31,6 +31,8 @@ Wait. Is it a sequence of :sibling :nest :sibling ...
 
 
 (map count (map __ (range 10)))
+;; => (0 1 2 5 14 42 132 429 1430 4862)
+;; This was the amount of possible orderings from my earlier solutions. It starts going south at 4 levels already.
 ;; => (0 1 2 5 13 34 89 233 610 1597)
 (+ 0 1 2 5 13 34 89 233 610)
 
